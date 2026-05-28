@@ -3,8 +3,11 @@ package com.example.maptracker.data.di
 import android.content.Context
 import androidx.room.Room
 import com.example.maptracker.data.local.AppDatabase
+import com.example.maptracker.data.local.CategoryDao
 import com.example.maptracker.data.local.LocationDao
+import com.example.maptracker.data.repository.CategoryRepositoryImpl
 import com.example.maptracker.data.repository.LocationRepositoryImpl
+import com.example.maptracker.domain.repository.CategoryRepository
 import com.example.maptracker.domain.repository.LocationRepository
 import dagger.Module
 import dagger.Provides
@@ -20,13 +23,23 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME).build()
+        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME)
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideLocationDao(database: AppDatabase): LocationDao = database.locationDao()
 
     @Provides
+    fun provideCategoryDao(database: AppDatabase): CategoryDao = database.categoryDao()
+
+    @Provides
     @Singleton
     fun provideLocationRepository(dao: LocationDao): LocationRepository =
         LocationRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideCategoryRepository(dao: CategoryDao): CategoryRepository =
+        CategoryRepositoryImpl(dao)
 }

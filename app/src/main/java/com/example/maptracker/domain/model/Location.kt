@@ -7,4 +7,6 @@ data class Location(
     val latitude: Double,
     val longitude: Double,
     val timestamp: Long = System.currentTimeMillis(),
+    val colorHex: String = PinColor.DEFAULT.hex,
+    val categoryId: Long? = null,
 )

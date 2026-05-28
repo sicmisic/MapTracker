@@ -15,16 +15,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SwipeToDismissBox
@@ -36,10 +41,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.maptracker.domain.model.Category
 import com.example.maptracker.domain.model.Location
 import com.example.maptracker.presentation.viewmodel.LocationsUiState
 import com.example.maptracker.presentation.viewmodel.LocationViewModel
@@ -49,17 +57,22 @@ import java.util.Locale
 
 @Composable
 internal fun ListRoute(
-    onNavigateToAddEdit: (Double, Double) -> Unit,
+    onNavigateToEditLocation: (locationId: Long, lat: Double, lng: Double) -> Unit,
+    onNavigateToMap: (lat: Double, lng: Double) -> Unit,
     viewModel: LocationViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.locationsUiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val categories by viewModel.categoriesState.collectAsStateWithLifecycle()
 
     ListScreen(
         uiState = uiState,
         searchQuery = searchQuery,
+        categories = categories,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onDeleteLocation = viewModel::deleteLocation,
+        onNavigateToEdit = onNavigateToEditLocation,
+        onNavigateToMap = onNavigateToMap,
     )
 }
 
@@ -67,8 +80,11 @@ internal fun ListRoute(
 internal fun ListScreen(
     uiState: LocationsUiState,
     searchQuery: String,
+    categories: List<Category>,
     onSearchQueryChange: (String) -> Unit,
     onDeleteLocation: (Location) -> Unit,
+    onNavigateToEdit: (locationId: Long, lat: Double, lng: Double) -> Unit,
+    onNavigateToMap: (lat: Double, lng: Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -116,9 +132,13 @@ internal fun ListScreen(
                         items = uiState.locations,
                         key = { it.id },
                     ) { location ->
+                        val category = categories.find { it.id == location.categoryId }
                         SwipeableLocationItem(
                             location = location,
+                            category = category,
                             onDelete = { onDeleteLocation(location) },
+                            onEdit = { onNavigateToEdit(location.id, location.latitude, location.longitude) },
+                            onCardClick = { onNavigateToMap(location.latitude, location.longitude) },
                         )
                     }
                 }
@@ -131,7 +151,10 @@ internal fun ListScreen(
 @Composable
 private fun SwipeableLocationItem(
     location: Location,
+    category: Category?,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    onCardClick: () -> Unit,
 ) {
     val dismissState = rememberSwipeToDismissBoxState()
 
@@ -166,23 +189,41 @@ private fun SwipeableLocationItem(
         },
         enableDismissFromStartToEnd = false,
     ) {
-        LocationListItem(location = location)
+        LocationListItem(location = location, category = category, onEdit = onEdit, onCardClick = onCardClick)
     }
 }
 
 @Composable
-private fun LocationListItem(location: Location) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun LocationListItem(
+    location: Location,
+    category: Category?,
+    onEdit: () -> Unit,
+    onCardClick: () -> Unit,
+) {
+    val pinColor = Color(android.graphics.Color.parseColor(location.colorHex))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onCardClick,
+        colors = CardDefaults.cardColors(),
+    ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.LocationOn,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp),
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(pinColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.LocationOn,
+                    contentDescription = null,
+                    tint = pinColor,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
             Column(
                 modifier = Modifier
                     .padding(start = 12.dp)
@@ -204,6 +245,23 @@ private fun LocationListItem(location: Location) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                if (category != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(android.graphics.Color.parseColor(category.colorHex))),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = category.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "${"%.4f".format(location.latitude)}, ${"%.4f".format(location.longitude)}",
@@ -215,6 +273,13 @@ private fun LocationListItem(location: Location) {
                         .format(Date(location.timestamp)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
+                )
+            }
+            IconButton(onClick = onEdit) {
+                Icon(
+                    imageVector = Icons.Rounded.Edit,
+                    contentDescription = "Edit",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

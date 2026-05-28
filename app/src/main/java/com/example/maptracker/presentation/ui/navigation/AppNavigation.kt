@@ -24,21 +24,31 @@ import com.example.maptracker.presentation.ui.screens.MapRoute
 import kotlinx.serialization.Serializable
 
 @Serializable
-object MapScreenDestination
+data class MapScreenDestination(
+    val centerLat: Double = 0.0,
+    val centerLng: Double = 0.0,
+    val shouldCenter: Boolean = false,
+)
 
 @Serializable
 object ListScreenDestination
 
 @Serializable
-data class AddEditScreenDestination(val lat: Double, val lng: Double)
+data class AddEditScreenDestination(
+    val lat: Double,
+    val lng: Double,
+    val locationId: Long = 0L,
+)
 
-enum class TopLevelDestination(
-    val route: Any,
-    val icon: ImageVector,
-    val label: String,
-) {
-    MAP(MapScreenDestination, Icons.Rounded.Map, "Map"),
-    LIST(ListScreenDestination, Icons.AutoMirrored.Rounded.List, "List"),
+enum class TopLevelDestination(val icon: ImageVector, val label: String) {
+    MAP(Icons.Rounded.Map, "Map"),
+    LIST(Icons.AutoMirrored.Rounded.List, "List"),
+}
+
+private fun NavDestination?.currentTopLevel(): TopLevelDestination? = when {
+    this?.hasRoute(MapScreenDestination::class) == true -> TopLevelDestination.MAP
+    this?.hasRoute(ListScreenDestination::class) == true -> TopLevelDestination.LIST
+    else -> null
 }
 
 @Composable
@@ -48,20 +58,30 @@ fun MapTrackerNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = MapScreenDestination,
+        startDestination = MapScreenDestination(),
         modifier = modifier,
     ) {
-        composable<MapScreenDestination> {
+        composable<MapScreenDestination> { backStackEntry ->
+            val dest = backStackEntry.toRoute<MapScreenDestination>()
             MapRoute(
                 onNavigateToAddEdit = { lat, lng ->
                     navController.navigate(AddEditScreenDestination(lat, lng))
                 },
+                centerLat = dest.centerLat,
+                centerLng = dest.centerLng,
+                shouldCenter = dest.shouldCenter,
             )
         }
         composable<ListScreenDestination> {
             ListRoute(
-                onNavigateToAddEdit = { lat, lng ->
-                    navController.navigate(AddEditScreenDestination(lat, lng))
+                onNavigateToEditLocation = { id, lat, lng ->
+                    navController.navigate(AddEditScreenDestination(lat, lng, id))
+                },
+                onNavigateToMap = { lat, lng ->
+                    navController.navigate(MapScreenDestination(lat, lng, true)) {
+                        popUpTo<MapScreenDestination> { inclusive = true; saveState = false }
+                        launchSingleTop = false
+                    }
                 },
             )
         }
@@ -70,6 +90,7 @@ fun MapTrackerNavHost(
             AddEditRoute(
                 lat = dest.lat,
                 lng = dest.lng,
+                locationId = dest.locationId,
                 onNavigateBack = navController::popBackStack,
             )
         }
@@ -77,29 +98,28 @@ fun MapTrackerNavHost(
 }
 
 @Composable
-fun MapTrackerBottomBar(
-    navController: NavHostController,
-) {
+fun MapTrackerBottomBar(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination: NavDestination? = navBackStackEntry?.destination
+    val currentTopLevel = navBackStackEntry?.destination.currentTopLevel()
 
-    // Only show bottom bar on top-level destinations
-    val showBottomBar = TopLevelDestination.entries.any { dest ->
-        currentDestination?.hasRoute(dest.route::class) == true
-    }
-    if (!showBottomBar) return
+    if (currentTopLevel == null) return
 
     NavigationBar {
         TopLevelDestination.entries.forEach { destination ->
             NavigationBarItem(
-                selected = currentDestination?.hasRoute(destination.route::class) == true,
+                selected = destination == currentTopLevel,
                 onClick = {
-                    navController.navigate(destination.route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
+                    when (destination) {
+                        TopLevelDestination.MAP -> navController.navigate(MapScreenDestination()) {
+                            popUpTo<MapScreenDestination> { saveState = true; inclusive = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
+                        TopLevelDestination.LIST -> navController.navigate(ListScreenDestination) {
+                            popUpTo<MapScreenDestination> { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 },
                 icon = { Icon(destination.icon, contentDescription = destination.label) },
