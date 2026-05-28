@@ -1,8 +1,8 @@
 # MapTracker
 
-A location-aware field notes app for Android. Drop pins on Google Maps, attach notes, organize by color and category — all stored offline.
+A location-aware field notes app for Android. Drop pins on Google Maps, attach notes, organize by color and category - all stored offline.
 
-Built as a portfolio project targeting a TomTom application, demonstrating Clean Architecture, Jetpack Compose, and modern Android development practices.
+Built as a portfolio project, demonstrating Clean Architecture, Jetpack Compose, and modern Android development practices.
 
 ## Features
 
