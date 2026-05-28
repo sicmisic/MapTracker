@@ -106,3 +106,7 @@ app/src/main/java/com/example/maptracker/
 - **Compose UI tests** — Semantic-tree tests for `ListScreen`
 
 Tests live in `app/src/test/` and `app/src/androidTest/`.
+
+## Screenshot
+<img width="342" height="755" alt="image" src="https://github.com/user-attachments/assets/9f31a323-6e6b-4c74-b6f9-19f5f025d1d8" />
+
