@@ -30,6 +30,7 @@ import com.example.maptracker.presentation.viewmodel.LocationsUiState
 import com.example.maptracker.presentation.viewmodel.LocationViewModel
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -42,16 +43,28 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun MapRoute(
     onNavigateToAddEdit: (Double, Double) -> Unit,
+    centerLat: Double = 0.0,
+    centerLng: Double = 0.0,
+    shouldCenter: Boolean = false,
     viewModel: LocationViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.locationsUiState.collectAsStateWithLifecycle()
-    MapScreen(uiState = uiState, onNavigateToAddEdit = onNavigateToAddEdit)
+    MapScreen(
+        uiState = uiState,
+        onNavigateToAddEdit = onNavigateToAddEdit,
+        centerLat = centerLat,
+        centerLng = centerLng,
+        shouldCenter = shouldCenter,
+    )
 }
 
 @Composable
 internal fun MapScreen(
     uiState: LocationsUiState,
     onNavigateToAddEdit: (Double, Double) -> Unit,
+    centerLat: Double = 0.0,
+    centerLng: Double = 0.0,
+    shouldCenter: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -84,6 +97,14 @@ internal fun MapScreen(
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(48.8566, 2.3522), 5f)
+    }
+
+    LaunchedEffect(shouldCenter, centerLat, centerLng) {
+        if (shouldCenter) {
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(LatLng(centerLat, centerLng), 15f)
+            )
+        }
     }
 
     val fusedLocationClient = remember {
@@ -138,9 +159,16 @@ internal fun MapScreen(
 
 @Composable
 private fun LocationMarker(location: Location) {
+    val icon = remember(location.colorHex) {
+        val color = android.graphics.Color.parseColor(location.colorHex)
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(color, hsv)
+        BitmapDescriptorFactory.defaultMarker(hsv[0])
+    }
     Marker(
         state = MarkerState(position = LatLng(location.latitude, location.longitude)),
         title = location.title,
         snippet = location.note.ifBlank { null },
+        icon = icon,
     )
 }
